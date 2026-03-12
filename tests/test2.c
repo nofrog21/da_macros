@@ -9,8 +9,7 @@ struct big_align {
 
 int main() {
 	struct big_align *array = NULL;
-	da_alloc(array, 10);
-	for (size_t i = 0; i < da_capacity(array); ++i) {
+	for (size_t i = 0; i < 20; ++i) {
 		struct big_align s = {.d = 123483.10293214};
 		da_push(array, s);
 	}
