@@ -83,6 +83,7 @@ typedef enum {
 		if (_da_push_p) { \
 			memcpy(_da_push_p, p, sizeof(*p) * da_len(p)); \
 			da_free(p); \
+			p = _da_push_p; \
 		} else { \
 			_da_push_err = DA_ERR_OOM;\
 		} \
