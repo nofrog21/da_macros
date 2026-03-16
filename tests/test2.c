@@ -11,11 +11,9 @@ struct big_align {
 
 int main() {
 	struct big_align *array = NULL;
-	struct da_header *hdr = NULL;
 	for (size_t i = 0; i < 20; ++i) {
 		struct big_align s = {.d = 123483.10293214};
 		da_push(array, s);
-		hdr = da_unsafe_get_header(array);
 	}
 	for (size_t i = 0; i < da_len(array); ++i) {
 		assert(array[i].d == 123483.10293214);

@@ -76,7 +76,9 @@ typedef enum {
  */
 #define da_reserve(p, c) ({ \
 	da_err _da_rsv_err = 0; \
-	if (c > da_capacity(p)) { \
+	if (!p) { \
+		da_alloc(p, c); \
+	} else if (c > da_capacity(p)) { \
 		DA_TYPEOF(p) _da_new_p = NULL; \
 		da_alloc(_da_new_p, c); \
 		if (_da_new_p) { \
@@ -167,5 +169,13 @@ typedef enum {
 		free(da_unsafe_get_header(p)); \
 	} \
 } while (0)
+
+
+/*
+ * `elem` is a pointer
+ */
+#define da_foreach(elem, p) \
+	for (DA_TYPEOF(p) elem = p; \
+		elem; elem = (elem == da_peek(p) ? NULL : elem + 1))
 
 #endif
