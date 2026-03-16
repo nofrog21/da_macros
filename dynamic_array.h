@@ -39,10 +39,17 @@ typedef enum {
 	    DA_ALIGNOF(type); \
 })
 
-#define da_get_header(p) (p ? (struct da_header *)((char *)p - \
+/*
+ * Expects begining of the array
+ * If passed NULL, will return NULL
+ */
+#define da_unsafe_get_header(p) (p ? (struct da_header *)((char *)p - \
 	sizeof (struct da_header) - da_alignto(*p)) : NULL)
-#define da_len(p) (da_get_header(p)->len)
-#define da_capacity(p) (da_get_header(p)->capacity)
+/*
+ * Return len and capacity
+ */
+#define da_len(p) (p ? da_unsafe_get_header(p)->len : 0)
+#define da_capacity(p) (p ? da_unsafe_get_header(p)->capacity : 0)
 
 /*
  * Allocates space for array.
@@ -50,7 +57,7 @@ typedef enum {
  * If failed, p is NULL
  */
 #define da_alloc(p, c) do { \
-	(p) = (DA_TYPEOF(*(p)) *)malloc(sizeof (*(p)) * \
+	(p) = (DA_TYPEOF(p)) aligned_alloc(DA_ALIGNOF(*(p)), sizeof (*(p)) * \
 	    c + sizeof (struct da_header) + da_alignto(*(p))); \
 	if ((p)) { \
 		((struct da_header *)(p))->len = 0; \
@@ -61,16 +68,39 @@ typedef enum {
 } while (0)
 
 /*
- * Gets pointer to last element.
- * Returns NULL is len is past capacity.
+ * Reserve specified capacity
+ * On failier fill return error, array will not be modified
+ * if capacity is less than previous will not do anything
+ * All pointers to previous memory will become invalid and
+ * de-referencing them is use after free
+ */
+#define da_reserve(p, c) ({ \
+	da_err _da_rsv_err = 0; \
+	if (c > da_capacity(p)) { \
+		DA_TYPEOF(p) _da_new_p = NULL; \
+		da_alloc(_da_new_p, c); \
+		if (_da_new_p) { \
+			memcpy(_da_new_p, p, sizeof *(p) * da_len(p)); \
+			da_free(p); \
+			p = _da_new_p; \
+		} else { \
+			_da_rsv_err = DA_ERR_OOM; \
+		} \
+	} \
+	_da_rsv_err; \
+})
+
+/*
+ * Gets pointer to the last element.
  */
 #define da_peek(p) ({ \
-	(p && (da_len(p) <= da_capacity(p)) ? p + da_len(p) - 1 : NULL); \
+	(p && da_len(p) && \
+	(da_len(p) <= da_capacity(p)) ? p + da_len(p) - 1 : NULL); \
 })
 
 
 /*
- * Push new element to end of array.
+ * Push new element to end of the array.
  * Reallocates if capacity limit is reached.
  * Returns 0 on success, error code on failier.
  * Will not invalidate data if failed.
@@ -78,21 +108,16 @@ typedef enum {
 #define da_push(p, value) ({ \
 	da_err _da_push_err = da_push_within_cap(p, value); \
 	if (_da_push_err) { \
-		DA_TYPEOF(p) _da_push_p; \
-		da_alloc(_da_push_p, 2 * da_capacity(p)); \
-		if (_da_push_p) { \
-			memcpy(_da_push_p, p, sizeof(*p) * da_len(p)); \
-			da_free(p); \
-			p = _da_push_p; \
-		} else { \
-			_da_push_err = DA_ERR_OOM;\
+		_da_push_err = da_reserve(p, 2 * da_capacity(p)); \
+		if (!_da_push_err) { \
+			_da_push_err = da_push_within_cap(p, value); \
 		} \
 	} \
 	_da_push_err; \
 })
 
 /*
- * Push new element to the end of array.
+ * Push new element to the end of the array.
  * Will not reallocate if capacity limit is reached.
  * Returns 0 on success, otherwise error code
  */
@@ -107,22 +132,22 @@ typedef enum {
 			_da_push_err = DA_ERR_CAP_LIMIT; \
 		} \
 		if (!_da_push_err) { \
-			(void)(p == &value); /* typeof array and value should match */ \
-			(p)[da_len(p)++] = value; \
+			(void)(p == &value); /* value does not match array type */ \
+			(p)[da_unsafe_get_header(p)->len++] = value; \
 		} \
 	} \
 	_da_push_err; \
 })
 
 /*
- * Pops last element from array.
+ * Pops last element from the array.
  * Return 0 on success, otherwise error code
  */
 #define da_pop(p) ({ \
 	da_err _da_pop_err = 0; \
 	if (p) { \
 		if (da_len(p)) { \
-			--da_len(p); \
+			--da_unsafe_get_header(p)->len; \
 		} else { \
 			_da_pop_err = DA_ERR_EMPTY; \
 		} \
@@ -133,13 +158,13 @@ typedef enum {
 })
 
 /*
- * Frees array.
+ * Frees the array.
  * Should not be called on memory not owned by array.
  * Safe to call on NULL pointer.
  */
 #define da_free(p) do { \
 	if (p) { \
-		free(da_get_header(p)); \
+		free(da_unsafe_get_header(p)); \
 	} \
 } while (0)
 
