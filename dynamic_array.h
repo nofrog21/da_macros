@@ -166,6 +166,7 @@ typedef enum {
 #define da_free(p) do { \
 	if (p) { \
 		free(da_unsafe_get_header(p)); \
+		p = NULL; \
 	} \
 } while (0)
 
