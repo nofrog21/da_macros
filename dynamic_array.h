@@ -9,7 +9,7 @@
 
 #if __STDC_VERSION__ < 202311L
 #define DA_TYPEOF(type) __typeof__(type)
-#define DA_ALIGNOF(type) __Alignof(type)
+#define DA_ALIGNOF(type) __alignof__(type)
 #else
 #define DA_TYPEOF(type) typeof(type)
 #define DA_ALIGNOF(type) alignof(type)
@@ -134,7 +134,6 @@ typedef enum {
 			_da_push_err = DA_ERR_CAP_LIMIT; \
 		} \
 		if (!_da_push_err) { \
-			(void)(p == &value); /* value does not match array type */ \
 			(p)[da_unsafe_get_header(p)->len++] = value; \
 		} \
 	} \
